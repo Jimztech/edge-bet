@@ -39,10 +39,17 @@ export function AuthShell({
   );
 }
 
-export function GoogleButton({ label }: { label: string }) {
+export function GoogleButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick?: () => void;
+}) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-border bg-white/5 hover:bg-white/10 transition text-sm font-medium"
     >
       <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -61,11 +68,15 @@ export function Field({
   type = "text",
   placeholder,
   defaultValue,
+  value,
+  onChange,
 }: {
   label: string;
   type?: string;
   placeholder?: string;
   defaultValue?: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
     <label className="block">
@@ -74,6 +85,8 @@ export function Field({
         type={type}
         placeholder={placeholder}
         defaultValue={defaultValue}
+        value={value}
+        onChange={onChange}
         className="mt-1.5 w-full px-4 py-3 rounded-xl bg-white/5 border border-border focus:border-primary/60 focus:bg-white/10 focus:outline-none transition text-sm"
       />
     </label>
