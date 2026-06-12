@@ -24,7 +24,7 @@ export default function LoginPage() {
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          router.push("/plans");
+          router.push("/chat");
         }}
       >
         <Field label="Email" type="email" placeholder="you@email.com" />
