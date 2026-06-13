@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, getUserById, saveAnalysis } from "@/lib/db/supabase";
+import { createServerSupabaseClient, getUserById, saveAnalysis } from "@/lib/db/supabase-server";
 import { analyzeSlip } from "@/lib/ai/slip-analysis";
 
 export async function POST(req: NextRequest) {

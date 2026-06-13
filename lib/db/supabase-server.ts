@@ -1,14 +1,6 @@
-import { createBrowserClient } from "@supabase/ssr";
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
-
-// ── Client-side (use in "use client" components and hooks) ──────────────────
-export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-}
 
 // ── Server-side (use in Server Components, Route Handlers, Server Actions) ──
 export async function createServerSupabaseClient() {
@@ -32,9 +24,7 @@ export async function createServerSupabaseClient() {
   );
 }
 
-// ── Admin client (use in route handlers that need elevated access) ───────────
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-
+// ── Admin client (for webhooks and elevated DB access) ───────────────────────
 export const supabaseAdmin = createSupabaseClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!

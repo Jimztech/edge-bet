@@ -4,6 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Logo } from "@/components/edgeiq/logo";
 import { RiskBadge } from "@/components/edgeiq/risk-badge";
+import { createClient } from "@/lib/db/supabase-client";
+import { useUser } from "@/hooks/use-user";
+import { useRouter } from "next/navigation";
+
 
 type Analysis = {
   match: string;
@@ -60,11 +64,32 @@ const SAMPLE_RESPONSES: Analysis[] = [
   },
 ];
 
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+
+  const router = useRouter();
+  const { profile, user } = useUser();
+
+  const name = profile?.name ?? user?.email ?? "User";
+  const initials = getInitials(name);
+
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -112,18 +137,26 @@ export default function ChatPage() {
             </button>
           ))}
         </nav>
-        <div className="mt-auto p-3">
-          <div className="glass rounded-xl p-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center text-sm font-bold text-white">
-              JM
+
+        <div className="mt-auto p-3 space-y-2">
+          <Link
+            href="/accounts"
+            className="glass rounded-xl p-3 flex items-center gap-3 hover:bg-white/10 transition"
+          >
+            <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center text-sm font-bold text-white shrink-0">
+              {initials}
             </div>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold truncate">Jack Matrix</div>
-              <Link href="/" className="text-[11px] text-muted-foreground hover:text-foreground">
-                Sign out
-              </Link>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold truncate">{name}</div>
+              <div className="text-[11px] text-muted-foreground">Account settings</div>
             </div>
-          </div>
+          </Link>
+          <button
+            onClick={handleSignOut}
+            className="w-full text-[11px] text-muted-foreground hover:text-foreground transition text-center py-1"
+          >
+            Sign out
+          </button>
         </div>
       </aside>
 

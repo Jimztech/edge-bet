@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, Field, GoogleButton } from "@/components/edgeiq/auth-shell";
-import { createClient } from "@/lib/db/supabase";
+import { createClient } from "@/lib/db/supabase-client";
 
 export default function SignupPage() {
   const router = useRouter();
