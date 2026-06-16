@@ -5,7 +5,7 @@ import { PlanCard } from "@/components/edgeiq/plan-card";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "EdgeIQ — Find the Weak Link in Every Bet Slip",
+  title: "EdgeIQ",
   description:
     "AI-powered football bet slip analysis. Detect risk, evaluate predictions, and optimize betting decisions in seconds.",
   openGraph: {

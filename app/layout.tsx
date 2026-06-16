@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "EdgeIQ — AI Bet Slip Analysis",
+  title: "EdgeIQ",
   description:
     "AI decision intelligence for football betting analysis. Find the weak link in every slip before you place it.",
   openGraph: {
