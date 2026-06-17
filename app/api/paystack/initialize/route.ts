@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/db/supabase-server";
 import { getUserById } from "@/lib/db/supabase-server";
 
+
 export async function POST(req: NextRequest) {
+  console.log("Paystack initialize hit");
+
   const supabase = await createServerSupabaseClient();
   const { data: { session } } = await supabase.auth.getSession();
 

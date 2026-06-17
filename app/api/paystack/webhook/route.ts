@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
 
   // Verify webhook authenticity
   const hash = crypto
-    .createHmac("sha512", process.env.PAYSTACK_WEBHOOK_SECRET!)
+    .createHmac("sha512", process.env.PAYSTACK_SECRET_KEY!)
     .update(body)
     .digest("hex");
 
