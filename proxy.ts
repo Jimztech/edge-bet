@@ -30,12 +30,19 @@ export async function proxy(request: NextRequest) {
   const isPaystackWebhook = pathname === "/api/paystack/webhook";
   const isAuthCallback = pathname === "/auth/callback";
 
+  // New addition
+  if(isAuthCallback) {
+    return NextResponse.next({ request });
+  }
+
+
   if (pathname.startsWith("/api/")) {
    return response;
   }
 
   // Always allow public routes and Paystack webhook
   if (isPublic || isPaystackWebhook || isAuthCallback) {
+
     // If logged in with a plan and trying to access login/signup, redirect to chat
     if (session && (pathname === "/login" || pathname === "/signup")) {
       const { data: user } = await supabase
