@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, getUserById, saveAnalysis } from "@/lib/db/supabase";
+import { createServerSupabaseClient, getUserById, saveAnalysis } from "@/lib/db/supabase-server";
 import { analyzeMatch } from "@/lib/ai/match-analysis";
 
 export async function POST(req: NextRequest) {
@@ -22,18 +22,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
-  try {
-    const result = await analyzeMatch(homeTeam, awayTeam, market);
-    await saveAnalysis({
-      userId: user.id,
-      type: "match",
-      input: { homeTeam, awayTeam, market },
-      result,
-      riskScore: result.confidence,
-    });
-    return NextResponse.json(result);
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
-  }
+  // try {
+  //   const result = await analyzeMatch(homeTeam, awayTeam, market);
+  //   await saveAnalysis({
+  //     userId: user.id,
+  //     type: "match",
+  //     input: { homeTeam, awayTeam, market },
+  //     result,
+  //     riskScore: result.confidence,
+  //   });
+  //   return NextResponse.json(result);
+  // } catch (err) {
+  //   console.error(err);
+  //   return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
+  // }
 }

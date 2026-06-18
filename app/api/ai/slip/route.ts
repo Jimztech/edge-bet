@@ -23,18 +23,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No selections provided" }, { status: 400 });
   }
 
-  try {
-    const result = await analyzeSlip(selections);
-    await saveAnalysis({
-      userId: user.id,
-      type: "slip",
-      input: { selections },
-      result,
-      riskScore: result.overall_risk_score,
-    });
-    return NextResponse.json(result);
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
-  }
+  // try {
+  //   const result = await analyzeSlip(selections);
+  //   await saveAnalysis({
+  //     userId: user.id,
+  //     type: "slip",
+  //     input: { selections },
+  //     result,
+  //     riskScore: result.overall_risk_score,
+  //   });
+  //   return NextResponse.json(result);
+  // } catch (err) {
+  //   console.error(err);
+  //   return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
+  // }
 }

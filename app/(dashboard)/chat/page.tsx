@@ -2,14 +2,13 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Logo } from "@/components/edgeiq/logo";
 import { RiskBadge } from "@/components/edgeiq/risk-badge";
 import { createClient } from "@/lib/db/supabase-client";
 import { useUser } from "@/hooks/use-user";
-import { useRouter } from "next/navigation";
 
-
-type Analysis = {
+type AnalysisResult = {
   match: string;
   pick: string;
   risk: "low" | "mid" | "high";
@@ -18,59 +17,24 @@ type Analysis = {
   alternative: string;
 };
 
+type AIResponse =
+  | { type: "single"; data: AnalysisResult }
+  | { type: "slip"; data: AnalysisResult[]; overall_risk: number };
+
 type Message =
   | { id: string; role: "user"; text: string }
-  | { id: string; role: "ai"; text?: string; analysis?: Analysis };
+  | { id: string; role: "ai"; response: AIResponse }
+  | { id: string; role: "error"; text: string };
 
 const SUGGESTIONS = [
   "Arsenal vs Chelsea — Arsenal Win",
   "Man City vs Brighton — Over 2.5",
   "Real Madrid vs Barca — BTTS",
-  "Paste my bet code 8H2K1A",
-];
-
-const SAMPLE_RESPONSES: Analysis[] = [
-  {
-    match: "Arsenal vs Chelsea",
-    pick: "Arsenal Win",
-    risk: "high",
-    confidence: 72,
-    reason: "Chelsea's defensive form has improved over their last 5 matches and they've shown stability in away fixtures.",
-    alternative: "Double Chance (1X) or Draw No Bet",
-  },
-  {
-    match: "Man City vs Brighton",
-    pick: "Over 2.5",
-    risk: "low",
-    confidence: 88,
-    reason: "Both sides averaging 3.1 combined goals per match. Man City scoring 2.4 at home; Brighton concedes 1.6 away.",
-    alternative: "Stick with Over 2.5 — strong value",
-  },
-  {
-    match: "Real Madrid vs Barcelona",
-    pick: "BTTS",
-    risk: "mid",
-    confidence: 64,
-    reason: "El Clásico typically sees both scoring (7 of last 10), but tactical caution from either coach could lower output.",
-    alternative: "Over 1.5 goals for safer odds",
-  },
-  {
-    match: "Slip code 8H2K1A",
-    pick: "5-leg accumulator",
-    risk: "high",
-    confidence: 31,
-    reason: "Two legs (Leg 2 & Leg 4) have sub-50% confidence. Combined accumulator confidence drops sharply.",
-    alternative: "Drop Leg 4 (Inter -1) and replace with Inter Over 1.5",
-  },
+  "Barcelona Win\nMan City Win\nPSG Win",
 ];
 
 function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 }
 
 export default function ChatPage() {
@@ -78,12 +42,53 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
-
   const router = useRouter();
   const { profile, user } = useUser();
 
   const name = profile?.name ?? user?.email ?? "User";
   const initials = getInitials(name);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, thinking]);
+
+  const send = async (text: string) => {
+    if (!text.trim() || thinking) return;
+
+    const userMsg: Message = { id: crypto.randomUUID(), role: "user", text };
+    setMessages((m) => [...m, userMsg]);
+    setInput("");
+    setThinking(true);
+
+    try {
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessages((m) => [
+          ...m,
+          { id: crypto.randomUUID(), role: "error", text: data.error ?? "Analysis failed" },
+        ]);
+      } else {
+        setMessages((m) => [
+          ...m,
+          { id: crypto.randomUUID(), role: "ai", response: data },
+        ]);
+      }
+    } catch {
+      setMessages((m) => [
+        ...m,
+        { id: crypto.randomUUID(), role: "error", text: "Something went wrong. Please try again." },
+      ]);
+    } finally {
+      setThinking(false);
+    }
+  };
 
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -91,30 +96,11 @@ export default function ChatPage() {
     router.push("/login");
   };
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, thinking]);
-
-  const send = (text: string) => {
-    if (!text.trim()) return;
-    const userMsg: Message = { id: crypto.randomUUID(), role: "user", text };
-    setMessages((m) => [...m, userMsg]);
-    setInput("");
-    setThinking(true);
-    setTimeout(() => {
-      const analysis = SAMPLE_RESPONSES[messages.length % SAMPLE_RESPONSES.length];
-      setMessages((m) => [...m, { id: crypto.randomUUID(), role: "ai", analysis }]);
-      setThinking(false);
-    }, 1100);
-  };
-
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}
       <aside className="hidden md:flex flex-col w-64 border-r border-border glass-strong">
-        <div className="p-4">
-          <Logo />
-        </div>
+        <div className="p-4"><Logo /></div>
         <div className="px-3">
           <button
             onClick={() => setMessages([])}
@@ -164,9 +150,7 @@ export default function ChatPage() {
       <main className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden glass-strong border-b border-border px-4 py-3 flex items-center justify-between">
           <Logo />
-          <Link href="/" className="text-xs text-muted-foreground">
-            Exit
-          </Link>
+          <Link href="/" className="text-xs text-muted-foreground">Exit</Link>
         </header>
 
         <div className="flex-1 overflow-y-auto">
@@ -175,20 +159,32 @@ export default function ChatPage() {
               <EmptyState onPick={send} />
             ) : (
               <div className="space-y-5">
-                {messages.map((m) =>
-                  m.role === "user" ? (
-                    <UserBubble key={m.id}>{m.text}</UserBubble>
-                  ) : (
+                {messages.map((m) => {
+                  if (m.role === "user") {
+                    return <UserBubble key={m.id}>{m.text}</UserBubble>;
+                  }
+                  if (m.role === "error") {
+                    return (
+                      <AIBubble key={m.id}>
+                        <p className="text-sm text-[var(--risk-high)]">{m.text}</p>
+                      </AIBubble>
+                    );
+                  }
+                  return (
                     <AIBubble key={m.id}>
-                      {m.analysis && <AnalysisCard a={m.analysis} />}
+                      {m.response.type === "single" ? (
+                        <AnalysisCard a={m.response.data} />
+                      ) : (
+                        <SlipAnalysis response={m.response} />
+                      )}
                     </AIBubble>
-                  )
-                )}
+                  );
+                })}
                 {thinking && (
                   <AIBubble>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <span className="w-2 h-2 rounded-full bg-[var(--neon-green)] animate-pulse" />
-                      Analyzing slip…
+                      Analyzing…
                     </div>
                   </AIBubble>
                 )}
@@ -201,40 +197,31 @@ export default function ChatPage() {
         {/* Composer */}
         <div className="px-4 pb-4 pt-2">
           <div className="mx-auto max-w-3xl glass-strong rounded-2xl p-3 shadow-glow">
-            <form onSubmit={(e) => { e.preventDefault(); send(input); }}>
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Paste a bet slip, bet code, or describe a match…"
-                className="w-full bg-transparent outline-none px-3 py-2 text-sm placeholder:text-muted-foreground"
-              />
-              <div className="mt-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 rounded-full glass text-xs flex items-center gap-1.5"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--neon-green)]" /> Auto
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 rounded-full glass text-xs text-muted-foreground"
-                  >
-                    + Attach
-                  </button>
-                </div>
-                <button
-                  type="submit"
-                  disabled={!input.trim()}
-                  className="gradient-primary disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-full shadow-glow-purple flex items-center gap-1.5"
-                >
-                  Send
-                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M5 12h14M13 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            </form>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send(input);
+                }
+              }}
+              placeholder="Paste a bet slip, or describe a match… (Shift+Enter for new line)"
+              rows={2}
+              className="w-full bg-transparent outline-none px-3 py-2 text-sm placeholder:text-muted-foreground resize-none"
+            />
+            <div className="mt-2 flex items-center justify-end">
+              <button
+                onClick={() => send(input)}
+                disabled={!input.trim() || thinking}
+                className="gradient-primary disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-full shadow-glow-purple flex items-center gap-1.5"
+              >
+                {thinking ? "Analyzing…" : "Send"}
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M5 12h14M13 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </main>
@@ -258,7 +245,7 @@ function EmptyState({ onPick }: { onPick: (s: string) => void }) {
         Hey, I'm <span className="text-gradient">EdgeIQ</span>. How can I help you today?
       </h1>
       <p className="mt-2 text-sm text-muted-foreground max-w-md">
-        Paste a slip, drop a bet code, or describe a match — I'll surface the weak link and suggest safer alternatives.
+        Paste a slip, describe a match — I'll surface the weak link and suggest safer alternatives.
       </p>
       <div className="mt-8 flex flex-wrap gap-2 justify-center max-w-2xl">
         {SUGGESTIONS.map((s) => (
@@ -267,7 +254,7 @@ function EmptyState({ onPick }: { onPick: (s: string) => void }) {
             onClick={() => onPick(s)}
             className="glass rounded-full px-4 py-2 text-xs hover:bg-white/10 hover:shadow-glow transition"
           >
-            {s}
+            {s.length > 40 ? s.slice(0, 40) + "…" : s}
           </button>
         ))}
       </div>
@@ -278,7 +265,7 @@ function EmptyState({ onPick }: { onPick: (s: string) => void }) {
 function UserBubble({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[80%] gradient-primary text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm shadow-glow-purple">
+      <div className="max-w-[80%] gradient-primary text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm shadow-glow-purple whitespace-pre-wrap">
         {children}
       </div>
     </div>
@@ -288,15 +275,13 @@ function UserBubble({ children }: { children: React.ReactNode }) {
 function AIBubble({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex gap-3">
-      <div className="w-8 h-8 shrink-0 rounded-xl gradient-primary flex items-center justify-center text-xs font-bold text-white">
-        IQ
-      </div>
+      <div className="w-8 h-8 shrink-0 rounded-xl gradient-primary flex items-center justify-center text-xs font-bold text-white">IQ</div>
       <div className="max-w-[88%] glass rounded-2xl rounded-tl-sm px-4 py-3 flex-1">{children}</div>
     </div>
   );
 }
 
-function AnalysisCard({ a }: { a: Analysis }) {
+function AnalysisCard({ a }: { a: AnalysisResult }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -314,32 +299,87 @@ function AnalysisCard({ a }: { a: Analysis }) {
         </div>
         <div className="mt-2 h-2 rounded-full bg-white/5 overflow-hidden">
           <div
-            className="h-full rounded-full"
+            className="h-full rounded-full transition-all duration-700"
             style={{
               width: `${a.confidence}%`,
-              background:
-                a.confidence >= 75
-                  ? "var(--risk-low)"
-                  : a.confidence >= 50
-                  ? "var(--risk-mid)"
-                  : "var(--risk-high)",
+              background: a.confidence >= 70 ? "var(--risk-low)" : a.confidence >= 45 ? "var(--risk-mid)" : "var(--risk-high)",
             }}
           />
         </div>
       </div>
 
       <div>
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
-          Reasoning
-        </div>
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Reasoning</div>
         <p className="text-sm">{a.reason}</p>
       </div>
 
       <div className="glass rounded-xl p-3">
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-          Smart alternative
-        </div>
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Smart alternative</div>
         <div className="mt-0.5 text-sm font-semibold text-[var(--neon-green)]">{a.alternative}</div>
+      </div>
+    </div>
+  );
+}
+
+function SlipAnalysis({ response }: { response: { type: "slip"; data: AnalysisResult[]; overall_risk: number } }) {
+  return (
+    <div className="space-y-4">
+      {/* Overall risk */}
+      <div className="glass rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold">Overall Slip Risk</span>
+          <span
+            className="text-2xl font-extrabold"
+            style={{
+              color: response.overall_risk >= 70 ? "var(--risk-high)" : response.overall_risk >= 45 ? "var(--risk-mid)" : "var(--risk-low)",
+            }}
+          >
+            {response.overall_risk}%
+          </span>
+        </div>
+        <div className="mt-2 h-2 rounded-full bg-white/5 overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{
+              width: `${response.overall_risk}%`,
+              background: response.overall_risk >= 70 ? "var(--risk-high)" : response.overall_risk >= 45 ? "var(--risk-mid)" : "var(--risk-low)",
+            }}
+          />
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          {response.overall_risk >= 70
+            ? "Very risky accumulator — consider removing weak legs"
+            : response.overall_risk >= 45
+            ? "Moderate risk — one or two legs need attention"
+            : "Solid slip — good selections overall"}
+        </p>
+      </div>
+
+      {/* Individual selections */}
+      <div className="space-y-3">
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          Selections ({response.data.length} legs)
+        </div>
+        {response.data.map((a, i) => (
+          <div key={i} className="glass rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <div className="text-xs font-semibold">{a.match}</div>
+                <div className="text-[11px] text-muted-foreground">Pick: {a.pick}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold">{a.confidence}%</span>
+                <RiskBadge level={a.risk} />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{a.reason}</p>
+            {a.alternative && (
+              <div className="text-xs text-[var(--neon-green)] font-medium">
+                → {a.alternative}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
