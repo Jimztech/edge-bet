@@ -153,7 +153,7 @@ export default function ChatPage() {
           <Link href="/" className="text-xs text-muted-foreground">Exit</Link>
         </header>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto pb-36">
           <div className="mx-auto max-w-3xl px-4 py-8">
             {messages.length === 0 ? (
               <EmptyState onPick={send} />
@@ -195,7 +195,7 @@ export default function ChatPage() {
         </div>
 
         {/* Composer */}
-        <div className="px-4 pb-4 pt-2">
+        <div className="sticky bottom-0 px-4 pb-4 pt-2 bg-background/80 backdrop-blur-md border-t border-border md:border-none">
           <div className="mx-auto max-w-3xl glass-strong rounded-2xl p-3 shadow-glow">
             <textarea
               value={input}
