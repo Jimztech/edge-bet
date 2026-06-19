@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Logo } from "@/components/edgeiq/logo";
@@ -33,7 +33,7 @@ const PLANS: Record<"standard" | "premium", {
   },
 };
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const searchParams = useSearchParams();
   const rawPlan = searchParams.get("plan");
   const plan: "standard" | "premium" =
@@ -62,9 +62,8 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Redirect to Paystack hosted payment page
       window.location.href = data.url;
-    } catch (err) {
+    } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
     }
@@ -80,7 +79,6 @@ export default function CheckoutPage() {
       </div>
 
       <div className="mx-auto max-w-4xl px-4 pb-20 grid md:grid-cols-5 gap-6">
-        {/* Left — payment action */}
         <div className="md:col-span-3 glass-strong rounded-3xl p-7">
           <p className="text-sm text-[var(--neon-green)] font-semibold uppercase tracking-widest">
             Step 2 of 2
@@ -119,7 +117,6 @@ export default function CheckoutPage() {
             Payments are processed securely by Paystack. By paying you agree to our terms.
           </p>
 
-          {/* Payment badges */}
           <div className="pt-4 mt-2 border-t border-border flex flex-col items-center gap-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>Powered by</span>
@@ -139,7 +136,6 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {/* Right — order summary */}
         <aside className="md:col-span-2 glass rounded-3xl p-7 h-fit">
           <h3 className="text-sm uppercase tracking-widest text-muted-foreground">Order summary</h3>
           <div className="mt-4 flex items-center justify-between">
@@ -164,5 +160,22 @@ export default function CheckoutPage() {
         </aside>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="flex items-center gap-3 text-muted-foreground text-sm">
+            <span className="w-2 h-2 rounded-full bg-[var(--neon-green)] animate-pulse" />
+            Loading…
+          </div>
+        </div>
+      }
+    >
+      <CheckoutContent />
+    </Suspense>
   );
 }
