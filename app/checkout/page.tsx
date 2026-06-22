@@ -12,7 +12,7 @@ const PLANS: Record<"standard" | "premium", {
 }> = {
   standard: {
     name: "Standard",
-    price: "₦5,000",
+    price: "₦2,500",
     features: [
       "AI chat analysis",
       "Match predictions",

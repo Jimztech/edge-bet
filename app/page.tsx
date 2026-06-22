@@ -364,7 +364,7 @@ function Pricing() {
       <div className="mt-12 grid md:grid-cols-2 gap-5">
         <PlanCard
           name="Standard"
-          price="₦5,000"
+          price="₦2,500"
           features={[
             "AI chat analysis",
             "Manual bet slip paste",
