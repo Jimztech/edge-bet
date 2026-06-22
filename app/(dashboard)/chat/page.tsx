@@ -126,7 +126,7 @@ export default function ChatPage() {
 
         <div className="mt-auto p-3 space-y-2">
           <Link
-            href="/accounts"
+            href="/account"
             className="glass rounded-xl p-3 flex items-center gap-3 hover:bg-white/10 transition"
           >
             <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center text-sm font-bold text-white shrink-0">

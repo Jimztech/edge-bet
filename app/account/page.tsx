@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Zap, AlertTriangle } from "lucide-react";
 import {
   Dialog,
@@ -13,11 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-const USER = {
-  name: "Daniel Okafor",
-  email: "daniel.okafor@example.com",
-};
+import { useUser } from "@/hooks/use-user";
+import { createClient } from "@/lib/db/supabase-client";
 
 function getInitials(name: string) {
   return name
@@ -29,14 +27,87 @@ function getInitials(name: string) {
 }
 
 export default function SettingsPage() {
-  const [plan, setPlan] = useState<"standard" | "premium">("standard");
+  const router = useRouter();
+  const { profile, user, loading: userLoading } = useUser();
+
   const [modal, setModal] = useState<null | "upgrade" | "downgrade" | "cancel" | "delete">(null);
   const [deleteText, setDeleteText] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const close = () => {
     setModal(null);
     setDeleteText("");
+    setError("");
   };
+
+  const name = profile?.name ?? user?.email ?? "User";
+  const email = user?.email ?? "";
+  const plan = profile?.plan ?? "free";
+  const isPremium = plan === "premium";
+  const expiresAt = profile?.plan_expires_at
+    ? new Date(profile.plan_expires_at).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
+
+  const handleCancelSubscription = async () => {
+    setActionLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/paystack/cancel", { method: "POST" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to cancel subscription");
+        setActionLoading(false);
+        return;
+      }
+
+      close();
+      window.location.reload();
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setActionLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/account/delete", { method: "POST" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to delete account");
+        setActionLoading(false);
+        return;
+      }
+
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/");
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setActionLoading(false);
+    }
+  };
+
+  if (userLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-3 text-muted-foreground text-sm">
+          <span className="w-2 h-2 rounded-full bg-[var(--neon-green)] animate-pulse" />
+          Loading…
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen px-4 py-8 sm:py-12">
@@ -60,11 +131,11 @@ export default function SettingsPage() {
           </h2>
           <div className="flex items-center gap-5">
             <div className="w-20 h-20 rounded-full gradient-primary flex items-center justify-center text-2xl font-semibold text-white shadow-glow-purple shrink-0">
-              {getInitials(USER.name)}
+              {getInitials(name)}
             </div>
             <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-semibold truncate">{USER.name}</p>
-              <p className="text-sm text-muted-foreground truncate">{USER.email}</p>
+              <p className="text-xl sm:text-2xl font-semibold truncate">{name}</p>
+              <p className="text-sm text-muted-foreground truncate">{email}</p>
             </div>
           </div>
         </section>
@@ -78,40 +149,55 @@ export default function SettingsPage() {
           <div className="flex items-center gap-3 mb-2">
             <span
               className={
-                plan === "premium"
+                isPremium
                   ? "inline-flex items-center rounded-full px-4 py-1.5 text-base font-semibold bg-[color:var(--neon-green)]/15 text-[color:var(--neon-green)] border border-[color:var(--neon-green)]/30"
                   : "inline-flex items-center rounded-full px-4 py-1.5 text-base font-semibold bg-muted text-muted-foreground border border-border"
               }
             >
-              {plan === "premium" ? "Premium" : "Standard"}
+              {plan === "free" ? "No active plan" : isPremium ? "Premium" : "Standard"}
             </span>
           </div>
-          <p className="text-xs text-muted-foreground mb-6">Renews on 12 July 2026</p>
+          {expiresAt && (
+            <p className="text-xs text-muted-foreground mb-6">Renews on {expiresAt}</p>
+          )}
 
           <div className="space-y-3">
-            {plan === "standard" ? (
-              <button
-                onClick={() => setModal("upgrade")}
-                className="w-full gradient-primary text-white font-medium rounded-xl py-3 px-4 shadow-glow-purple hover:opacity-90 transition inline-flex items-center justify-center gap-2"
-              >
-                <Zap className="w-4 h-4" />
-                Upgrade to Premium — ₦15,000/mo
-              </button>
-            ) : (
-              <button
-                onClick={() => setModal("downgrade")}
-                className="w-full bg-muted hover:bg-muted/70 text-muted-foreground font-medium rounded-xl py-3 px-4 transition"
-              >
-                Downgrade to Standard
-              </button>
+            {plan !== "free" && (
+              <>
+                {!isPremium ? (
+                  <button
+                    onClick={() => setModal("upgrade")}
+                    className="w-full gradient-primary text-white font-medium rounded-xl py-3 px-4 shadow-glow-purple hover:opacity-90 transition inline-flex items-center justify-center gap-2"
+                  >
+                    <Zap className="w-4 h-4" />
+                    Upgrade to Premium — ₦15,000/mo
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setModal("downgrade")}
+                    className="w-full bg-muted hover:bg-muted/70 text-muted-foreground font-medium rounded-xl py-3 px-4 transition"
+                  >
+                    Downgrade to Standard
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setModal("cancel")}
+                  className="w-full text-sm text-destructive hover:underline py-2"
+                >
+                  Cancel subscription
+                </button>
+              </>
             )}
 
-            <button
-              onClick={() => setModal("cancel")}
-              className="w-full text-sm text-destructive hover:underline py-2"
-            >
-              Cancel subscription
-            </button>
+            {plan === "free" && (
+              <Link
+                href="/plans"
+                className="block text-center w-full gradient-primary text-white font-medium rounded-xl py-3 px-4 shadow-glow-purple hover:opacity-90 transition"
+              >
+                Choose a plan
+              </Link>
+            )}
           </div>
         </section>
 
@@ -133,73 +219,58 @@ export default function SettingsPage() {
         </section>
       </div>
 
-      {/* Upgrade */}
+      {/* Upgrade — UI only, no functional logic yet */}
       <Dialog open={modal === "upgrade"} onOpenChange={(o: boolean) => !o && close()}>
         <DialogContent className="glass-strong">
           <DialogHeader>
             <DialogTitle>Upgrade to Premium</DialogTitle>
             <DialogDescription>
-              You'll be charged ₦15,000 today and every 30 days.
+              This feature is coming soon. Please check back later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" onClick={close}>Cancel</Button>
-            <Button
-              className="gradient-primary text-white"
-              onClick={() => {
-                setPlan("premium");
-                close();
-              }}
-            >
-              Confirm upgrade
-            </Button>
+            <Button variant="ghost" onClick={close}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Downgrade */}
+      {/* Downgrade — UI only, no functional logic yet */}
       <Dialog open={modal === "downgrade"} onOpenChange={(o: boolean) => !o && close()}>
         <DialogContent className="glass-strong">
           <DialogHeader>
             <DialogTitle>Downgrade to Standard</DialogTitle>
             <DialogDescription>
-              You'll keep Premium access until your current period ends, then switch to Standard.
+              This feature is coming soon. Please check back later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" onClick={close}>Keep Premium</Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setPlan("standard");
-                close();
-              }}
-            >
-              Confirm downgrade
-            </Button>
+            <Button variant="ghost" onClick={close}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Cancel */}
+      {/* Cancel — fully wired */}
       <Dialog open={modal === "cancel"} onOpenChange={(o: boolean) => !o && close()}>
         <DialogContent className="glass-strong">
           <DialogHeader>
             <DialogTitle>Cancel subscription</DialogTitle>
             <DialogDescription>
-              Your subscription will end at the current billing period. You'll lose access to all features.
+              Your subscription will end at the current billing period. You'll lose access to all features after that.
             </DialogDescription>
           </DialogHeader>
+          {error && (
+            <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{error}</p>
+          )}
           <DialogFooter>
-            <Button variant="ghost" onClick={close}>Keep subscription</Button>
-            <Button variant="destructive" onClick={close}>
-              Cancel subscription
+            <Button variant="ghost" onClick={close} disabled={actionLoading}>Keep subscription</Button>
+            <Button variant="destructive" onClick={handleCancelSubscription} disabled={actionLoading}>
+              {actionLoading ? "Cancelling…" : "Cancel subscription"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete */}
+      {/* Delete — fully wired */}
       <Dialog open={modal === "delete"} onOpenChange={(o: boolean) => !o && close()}>
         <DialogContent className="glass-strong">
           <DialogHeader>
@@ -215,14 +286,17 @@ export default function SettingsPage() {
             placeholder="Type DELETE"
             className="mt-2"
           />
+          {error && (
+            <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{error}</p>
+          )}
           <DialogFooter>
-            <Button variant="ghost" onClick={close}>Cancel</Button>
+            <Button variant="ghost" onClick={close} disabled={actionLoading}>Cancel</Button>
             <Button
               variant="destructive"
-              disabled={deleteText !== "DELETE"}
-              onClick={close}
+              disabled={deleteText !== "DELETE" || actionLoading}
+              onClick={handleDeleteAccount}
             >
-              Permanently delete
+              {actionLoading ? "Deleting…" : "Permanently delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
