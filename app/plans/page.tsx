@@ -29,7 +29,7 @@ export default function PlansPage() {
         <div className="mt-10 grid md:grid-cols-2 gap-5">
           <PlanBox
             name="Standard"
-            price="₦5,000"
+            price="₦2,500"
             features={[
               "AI chat analysis",
               "Manual bet slip paste",
