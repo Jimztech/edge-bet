@@ -56,7 +56,7 @@ export default function SignupPage() {
         plan: "free",
       });
 
-      router.push("/plans");
+      router.push("/chat");
     }
 
     setLoading(false);
