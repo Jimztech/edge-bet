@@ -43,7 +43,7 @@ export default function LoginPage() {
       if (profile?.plan && profile.plan !== "free") {
         router.push("/chat");
       } else {
-        router.push("/plans");
+        router.push("/chat");
       }
     }
 
