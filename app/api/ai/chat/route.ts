@@ -4,16 +4,16 @@ import { analyzeWithAI } from "@/lib/ai/provider";
 
 export async function POST(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user: authUser } } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await getUserById(session.user.id);
+  const user = await getUserById(authUser.id);
 
-  if (!user || user.plan === "free") {
-    return NextResponse.json({ error: "Active subscription required" }, { status: 403 });
+  if (!user) {
+    return NextResponse.json({ error: "User profile not found" }, { status: 404 });
   }
 
   const { message } = await req.json();
