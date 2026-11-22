@@ -4,7 +4,12 @@ import { NextRequest, NextResponse } from "next/server";
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  let response = NextResponse.next({ request });
+  // Let the OAuth callback and API routes (including the Paystack webhook) through untouched
+  if (pathname === "/auth/callback" || pathname.startsWith("/api/")) {
+    return NextResponse.next({ request });
+  }
+
+  const response = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,65 +29,26 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const isPublic = ["/", "/login", "/signup"].includes(pathname);
-  const isPaystackWebhook = pathname === "/api/paystack/webhook";
-  const isAuthCallback = pathname === "/auth/callback";
+  const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const isPublic = pathname === "/" || isAuthPage;
 
-  // New addition
-  if(isAuthCallback) {
-    return NextResponse.next({ request });
-  }
-
-
-  if (pathname.startsWith("/api/")) {
-   return response;
-  }
-
-  // Always allow public routes and Paystack webhook
-  if (isPublic || isPaystackWebhook || isAuthCallback) {
-
-    // If logged in with a plan and trying to access login/signup, redirect to chat
-    if (session && (pathname === "/login" || pathname === "/signup")) {
-      const { data: user } = await supabase
-        .from("users")
-        .select("plan")
-        .eq("id", session.user.id)
-        .single();
-
-      if (user?.plan && user.plan !== "free") {
-        return NextResponse.redirect(new URL("/chat", request.url));
-      }
-    }
-    return response;
-  }
-
-  // Not logged in → redirect to login
-  if (!session) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  // Fetch user plan for protected routes
-  const { data: user } = await supabase
-    .from("users")
-    .select("plan, plan_expires_at")
-    .eq("id", session.user.id)
-    .single();
-
-  const hasActivePlan =
-    user?.plan &&
-    user.plan !== "free" &&
-    (!user.plan_expires_at || new Date(user.plan_expires_at) > new Date());
-
-  // /plans and /checkout — logged in but redirect to chat if already has plan
-  if ((pathname === "/plans" || pathname.startsWith("/checkout")) && hasActivePlan) {
+  // Logged in + on login/signup → go straight to chat
+  if (user && isAuthPage) {
     return NextResponse.redirect(new URL("/chat", request.url));
   }
 
-  // /chat — requires active plan, else redirect to /plans
-  if (pathname.startsWith("/chat") && !hasActivePlan) {
-    return NextResponse.redirect(new URL("/plans", request.url));
+  // Public pages are open to everyone
+  if (isPublic) {
+    return response;
+  }
+
+  // Everything else requires login
+  if (!user) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return response;

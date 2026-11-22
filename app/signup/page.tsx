@@ -35,7 +35,7 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/plans`,
+        emailRedirectTo: `${window.location.origin}/chat`,
         data: {
           app_name: "EdgeIQ",
         },

@@ -34,15 +34,19 @@ export default function LoginPage() {
     if (data.user) {
       // Check plan — proxy/middleware will also enforce this,
       // but we do it here for an instant redirect without a round trip
-      const { data: profile } = await supabase
-        .from("users")
-        .select("plan")
-        .eq("id", data.user.id)
-        .single();
+      // const { data: profile } = await supabase
+      //   .from("users")
+      //   .select("plan")
+      //   .eq("id", data.user.id)
+      //   .single();
 
-      if (profile?.plan && profile.plan !== "free") {
-        router.push("/chat");
-      } else {
+      // if (profile?.plan && profile.plan !== "free") {
+      //   router.push("/chat");
+      // } else {
+      //   router.push("/chat");
+      // }
+
+      if (data.user) {
         router.push("/chat");
       }
     }
